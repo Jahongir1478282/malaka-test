@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Onlayn Test (JSON)</title>
+    <style>
+        /* CSS o'zgarishsiz qoladi */
+        :root { --primary-color: #4a90e2; --secondary-color: #f5f6fa; --text-color: #2f3640; --success-color: #2ecc71; --danger-color: #e74c3c; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #dcdde1; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background-color: white; width: 90%; max-width: 600px; border-radius: 15px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--secondary-color); padding-bottom: 10px; margin-bottom: 20px; }
+        .header h1 { font-size: 24px; color: var(--primary-color); margin: 0; }
+        .score-box { font-weight: bold; color: var(--text-color); }
+        .question-text { font-size: 18px; font-weight: 600; color: var(--text-color); margin-bottom: 15px; line-height: 1.5; }
+        .answer-buttons { display: flex; flex-direction: column; gap: 10px; }
+        .btn { background-color: white; border: 2px solid var(--primary-color); border-radius: 8px; padding: 12px; font-size: 16px; color: var(--text-color); cursor: pointer; transition: all 0.3s ease; text-align: left; }
+        .btn:hover:not([disabled]) { background-color: var(--primary-color); color: white; }
+        .btn:disabled { cursor: no-drop; }
+        .btn.correct { background-color: var(--success-color); border-color: var(--success-color); color: white; }
+        .btn.wrong { background-color: var(--danger-color); border-color: var(--danger-color); color: white; }
+        .controls { display: flex; justify-content: flex-end; margin-top: 20px; }
+        #next-btn { background-color: var(--primary-color); color: white; border: none; padding: 10px 25px; border-radius: 5px; font-size: 16px; cursor: pointer; display: none; }
+        .result-screen { text-align: center; display: none; }
+        
+        /* Loading indikatori uchun stil */
+        #loading { text-align: center; color: var(--primary-color); font-weight: bold; font-size: 18px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="loading">Savollar yuklanmoqda...</div>
+
+        <div id="quiz-box" style="display: none;">
+            <div class="header">
+                <h1>Test Sinovi</h1>
+                <div class="score-box">Savol: <span id="current-question">1</span> / <span id="total-questions">10</span></div>
+            </div>
+            
+            <div class="question-section">
+                <div id="question" class="question-text"></div>
+                <div id="answer-buttons" class="answer-buttons"></div>
+            </div>
+
+            <div class="controls">
+                <button id="next-btn">Keyingisi</button>
+            </div>
+        </div>
+
+        <div id="result-box" class="result-screen">
+            <h2>Test Yakunlandi!</h2>
+            <p>Sizning natijangiz:</p>
+            <h1 id="final-score">0 / 0</h1>
+            <button class="btn" style="background-color: var(--primary-color); color: white; text-align: center;" onclick="location.reload()">Qayta boshlash</button>
+        </div>
+    </div>
+
+    <script>
+        let rawData = []; // Bo'sh massiv, JSON dan to'ldiriladi
+        let questions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+
+        const questionElement = document.getElementById("question");
+        const answerButtonsElement = document.getElementById("answer-buttons");
+        const nextButton = document.getElementById("next-btn");
+        const quizBox = document.getElementById("quiz-box");
+        const resultBox = document.getElementById("result-box");
+        const loadingBox = document.getElementById("loading");
+        const currentQSpan = document.getElementById("current-question");
+        const totalQSpan = document.getElementById("total-questions");
+        const finalScoreSpan = document.getElementById("final-score");
+
+        // --- YANGI QISM: JSON FAYLNI O'QISH ---
+        async function loadData() {
+            try {
+                // 'questions.json' fayliga so'rov yuborish
+                const response = await fetch('questions.json');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP xatolik! Status: ${response.status}`);
+                }
+
+                // JSON ni o'qib olish
+                rawData = await response.json();
+                
+                // Yuklanish tugadi, testni boshlaymiz
+                loadingBox.style.display = 'none';
+                startQuiz();
+
+            } catch (error) {
+                loadingBox.innerHTML = "Xatolik yuz berdi!<br>Faylni serverda yoki VS Code Live Server orqali oching.<br>" + error;
+                console.error("JSON yuklashda xato:", error);
+            }
+        }
+
+        // Test mantiqi - 50ta savol tanlash
+        function prepareQuestions() {
+            // Birinchi 50ta savol yoki mavjudlaridan
+            const selectedRaw = rawData.slice(0, 50);
+            const shuffledRaw = selectedRaw.sort(() => Math.random() - 0.5);
+            
+            questions = shuffledRaw.map(item => {
+                const correctAnswer = item.answer.replace(/^\*\s*/, "").trim();
+                let wrongAnswers = rawData
+                    .filter(i => i.answer !== item.answer)
+                    .map(i => i.answer.replace(/^\*\s*/, "").trim())
+                    .sort(() => Math.random() - 0.5)
+                    .slice(0, 3);
+
+                const answers = [...wrongAnswers, correctAnswer].sort(() => Math.random() - 0.5);
+
+                return {
+                    question: item.question,
+                    correct: correctAnswer,
+                    answers: answers
+                };
+            });
+        }
+
+        function startQuiz() {
+            prepareQuestions();
+            currentQuestionIndex = 0;
+            score = 0;
+            quizBox.style.display = "block";
+            resultBox.style.display = "none";
+            totalQSpan.innerText = questions.length;
+            showQuestion();
+        }
+
+        function showQuestion() {
+            resetState();
+            let currentQuestion = questions[currentQuestionIndex];
+            currentQSpan.innerText = currentQuestionIndex + 1;
+            questionElement.innerText = currentQuestion.question;
+
+            currentQuestion.answers.forEach(answer => {
+                const button = document.createElement("button");
+                button.innerText = answer;
+                button.classList.add("btn");
+                if (answer === currentQuestion.correct) {
+                    button.dataset.correct = "true";
+                }
+                button.addEventListener("click", selectAnswer);
+                answerButtonsElement.appendChild(button);
+            });
+        }
+
+        function resetState() {
+            nextButton.style.display = "none";
+            while (answerButtonsElement.firstChild) {
+                answerButtonsElement.removeChild(answerButtonsElement.firstChild);
+            }
+        }
+
+        function selectAnswer(e) {
+            const selectedBtn = e.target;
+            const isCorrect = selectedBtn.dataset.correct === "true";
+            
+            if (isCorrect) {
+                selectedBtn.classList.add("correct");
+                score++;
+            } else {
+                selectedBtn.classList.add("wrong");
+            }
+
+            Array.from(answerButtonsElement.children).forEach(button => {
+                if (button.dataset.correct === "true") {
+                    button.classList.add("correct");
+                }
+                button.disabled = true;
+            });
+            nextButton.style.display = "block";
+        }
+
+        function showScore() {
+            quizBox.style.display = "none";
+            resultBox.style.display = "block";
+            finalScoreSpan.innerText = `${score} / ${questions.length}`;
+        }
+
+        nextButton.addEventListener("click", () => {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                showQuestion();
+            } else {
+                showScore();
+            }
+        });
+
+        // Dasturni ishga tushirish (JSON yuklashdan boshlanadi)
+        loadData();
+
+    </script>
+</body>
+</html>
