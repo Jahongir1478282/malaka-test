@@ -5,28 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Online Test Tizimi</title>
     <style>
-        /* DIZAYN (O'ZGARMADI) */
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #fcfcfc; margin: 0; padding: 20px; color: #333; }
-        .header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px; }
-        .user-info { display: flex; align-items: center; font-weight: bold; color: #555; }
-        .avatar { width: 30px; height: 30px; background-color: #ddd; border-radius: 50%; margin-right: 10px; background-size: cover; }
-        .timer { font-size: 24px; font-weight: bold; text-align: right; margin-bottom: 10px; }
-        .grid-container { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 30px; justify-content: flex-start; }
-        .grid-item { width: 35px; height: 35px; background-color: #26c6da; color: white; display: flex; justify-content: center; align-items: center; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; transition: 0.2s; border: none; }
-        .grid-item:hover { opacity: 0.8; }
-        .grid-item.active { background-color: #00838f; border: 2px solid #006064; }
-        .grid-item.answered { background-color: #4db6ac; }
-        .question-text { font-size: 18px; margin-bottom: 20px; color: #444; }
-        .options-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 40px; }
-        .option-btn { padding: 15px 20px; background-color: #e0f2f1; border: 1px solid #b2dfdb; border-radius: 5px; text-align: left; cursor: pointer; font-size: 16px; transition: 0.2s; color: #004d40; }
-        .option-btn:hover { background-color: #b2dfdb; }
-        .option-btn.selected { background-color: #80cbc4; border-color: #009688; font-weight: bold; }
-        .option-btn.wrong { background-color: #ffcdd2; color: #c62828; border-color: #ef9a9a; }
-        .option-btn.correct { background-color: #c8e6c9; color: #2e7d32; border-color: #a5d6a7; }
-        .footer-buttons { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }
-        .nav-btn { padding: 10px 30px; background-color: white; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-weight: bold; color: #555; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .finish-btn { padding: 12px 40px; background-color: #2962ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 0 2px 5px rgba(41, 98, 255, 0.3); }
-        .finish-btn:hover { background-color: #0d47a1; }
+        /* CSS o'zgarishsiz qoladi */
+        :root { --primary-color: #4a90e2; --secondary-color: #f5f6fa; --text-color: #2f3640; --success-color: #2ecc71; --danger-color: #e74c3c; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #dcdde1; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background-color: white; width: 90%; max-width: 600px; border-radius: 15px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--secondary-color); padding-bottom: 10px; margin-bottom: 20px; }
+        .header h1 { font-size: 24px; color: var(--primary-color); margin: 0; }
+        .score-box { font-weight: bold; color: var(--text-color); }
+        .question-text { font-size: 18px; font-weight: 600; color: var(--text-color); margin-bottom: 15px; line-height: 1.5; }
+        .answer-buttons { display: flex; flex-direction: column; gap: 10px; }
+        .btn { background-color: white; border: 2px solid var(--primary-color); border-radius: 8px; padding: 12px; font-size: 16px; color: var(--text-color); cursor: pointer; transition: all 0.3s ease; text-align: left; }
+        .btn:hover:not([disabled]) { background-color: var(--primary-color); color: white; }
+        .btn:disabled { cursor: no-drop; }
+        .btn.correct { background-color: var(--success-color); border-color: var(--success-color); color: white; }
+        .btn.wrong { background-color: var(--danger-color); border-color: var(--danger-color); color: white; }
+        .controls { display: flex; justify-content: flex-end; margin-top: 20px; }
+        #next-btn { background-color: var(--primary-color); color: white; border: none; padding: 10px 25px; border-radius: 5px; font-size: 16px; cursor: pointer; display: none; }
+        .result-screen { text-align: center; display: none; }
+        
+        /* Loading indikatori uchun stil */
+        #loading { text-align: center; color: var(--primary-color); font-weight: bold; font-size: 18px; }
     </style>
 </head>
 <body>
@@ -53,70 +51,36 @@
     </div>
 
     <script>
-        let fullDatabase = []; // JSON dagi hamma savollar
-        let testQuestions = []; // Tanlab olingan 100 ta savol
+        let rawData = []; // Bo'sh massiv, JSON dan to'ldiriladi
+        let questions = [];
         let currentQuestionIndex = 0;
-        let userAnswers = {}; 
-        let timerDuration = 25 * 60; // 25 minut
+        let score = 0;
 
-        // Yordamchi: Massivni aralashtirish (Shuffle)
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-            return array;
-        }
+        const questionElement = document.getElementById("question");
+        const answerButtonsElement = document.getElementById("answer-buttons");
+        const nextButton = document.getElementById("next-btn");
+        const quizBox = document.getElementById("quiz-box");
+        const resultBox = document.getElementById("result-box");
+        const loadingBox = document.getElementById("loading");
+        const currentQSpan = document.getElementById("current-question");
+        const totalQSpan = document.getElementById("total-questions");
+        const finalScoreSpan = document.getElementById("final-score");
 
-        // 1. JSON yuklash va 100 ta savol tayyorlash
-        async function loadQuestions() {
+        // --- YANGI QISM: JSON FAYLNI O'QISH ---
+        async function loadData() {
             try {
                 const response = await fetch('questions.json');
-                fullDatabase = await response.json();
-
-                if (fullDatabase.length === 0) {
-                    alert("Baza bo'sh!");
-                    return;
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP xatolik! Status: ${response.status}`);
                 }
 
-                // 1-qadam: Barcha savollarni aralashtiramiz
-                shuffleArray(fullDatabase);
-
-                // 2-qadam: Faqat 100 tasini olamiz (agar 100 dan kam bo'lsa, borini oladi)
-                const selectedCount = Math.min(fullDatabase.length, 100);
-                const rawQuestions = fullDatabase.slice(0, selectedCount);
-
-                // 3-qadam: Har bir savolga variantlar yasaymiz
-                testQuestions = rawQuestions.map(item => {
-                    // To'g'ri javob
-                    const correctAnswer = item.answer;
-
-                    // Boshqa savollarning javoblarini olamiz (noto'g'ri variant sifatida)
-                    const otherAnswers = fullDatabase
-                        .filter(q => q.answer !== correctAnswer) // To'g'risini chiqarib tashlaymiz
-                        .map(q => q.answer);
-                    
-                    // Noto'g'ri javoblarni aralashtirib, 3 tasini olamiz
-                    shuffleArray(otherAnswers);
-                    const wrongOptions = otherAnswers.slice(0, 3);
-
-                    // To'g'ri va Noto'g'rini birlashtiramiz
-                    let options = [correctAnswer, ...wrongOptions];
-                    
-                    // Variantlarni aralashtiramiz (A, B, C, D joylashuvi)
-                    shuffleArray(options);
-
-                    return {
-                        text: item.question,
-                        options: options,
-                        correctIndex: options.indexOf(correctAnswer) // To'g'ri javob qaysi indeksda ekanini topamiz
-                    };
-                });
-
-                // Testni boshlash
-                renderGrid();
-                showQuestion(0);
-                startTimer();
+                // JSON ni o'qib olish
+                rawData = await response.json();
+                
+                // Yuklanish tugadi, testni boshlaymiz
+                loadingBox.style.display = 'none';
+                startQuiz();
 
             } catch (error) {
                 console.error("Xatolik:", error);
@@ -124,107 +88,103 @@
             }
         }
 
-        // 2. Grid chizish
-        function renderGrid() {
-            const container = document.getElementById('grid-container');
-            container.innerHTML = '';
-            testQuestions.forEach((q, index) => {
-                const btn = document.createElement('button');
-                btn.className = 'grid-item';
-                btn.innerText = index + 1;
-                btn.onclick = () => showQuestion(index);
-                if (userAnswers[index] !== undefined) btn.classList.add('answered');
-                if (index === currentQuestionIndex) btn.classList.add('active');
-                container.appendChild(btn);
-            });
-        }
-
-        // 3. Savolni ko'rsatish
-        function showQuestion(index) {
-            currentQuestionIndex = index;
-            const question = testQuestions[index];
+        // Test mantiqi - 50ta savol tanlash
+        function prepareQuestions() {
+            // Birinchi 50ta savol yoki mavjudlaridan
+            const selectedRaw = rawData.slice(0, 50);
+            const shuffledRaw = selectedRaw.sort(() => Math.random() - 0.5);
             
-            document.getElementById('question-text').innerText = `${index + 1}). ${question.text}`;
-            const optionsContainer = document.getElementById('options-container');
-            optionsContainer.innerHTML = '';
+            questions = shuffledRaw.map(item => {
+                const correctAnswer = item.answer.replace(/^\*\s*/, "").trim();
+                let wrongAnswers = rawData
+                    .filter(i => i.answer !== item.answer)
+                    .map(i => i.answer.replace(/^\*\s*/, "").trim())
+                    .sort(() => Math.random() - 0.5)
+                    .slice(0, 3);
 
-            question.options.forEach((opt, optIndex) => {
-                const btn = document.createElement('div');
-                btn.className = 'option-btn';
-                btn.innerText = opt;
-                if (userAnswers[index] === optIndex) btn.classList.add('selected');
-                btn.onclick = () => selectOption(index, optIndex);
-                optionsContainer.appendChild(btn);
+                const answers = [...wrongAnswers, correctAnswer].sort(() => Math.random() - 0.5);
+
+                return {
+                    question: item.question,
+                    correct: correctAnswer,
+                    answers: answers
+                };
             });
-            renderGrid();
         }
 
-        // 4. Variant tanlash
-        function selectOption(qIndex, optIndex) {
-            userAnswers[qIndex] = optIndex;
-            showQuestion(qIndex);
+        function startQuiz() {
+            prepareQuestions();
+            currentQuestionIndex = 0;
+            score = 0;
+            quizBox.style.display = "block";
+            resultBox.style.display = "none";
+            totalQSpan.innerText = questions.length;
+            showQuestion();
         }
 
-        function nextQuestion() {
-            if (currentQuestionIndex < testQuestions.length - 1) showQuestion(currentQuestionIndex + 1);
-        }
+        function showQuestion() {
+            resetState();
+            let currentQuestion = questions[currentQuestionIndex];
+            currentQSpan.innerText = currentQuestionIndex + 1;
+            questionElement.innerText = currentQuestion.question;
 
-        function prevQuestion() {
-            if (currentQuestionIndex > 0) showQuestion(currentQuestionIndex - 1);
-        }
-
-        // 5. Testni tugatish
-        function finishTest() {
-            if(!confirm("Testni tugatasizmi?")) return;
-            
-            let correctCount = 0;
-            testQuestions.forEach((q, index) => {
-                if (userAnswers[index] === q.correctIndex) correctCount++;
-            });
-
-            alert(`Natija: ${testQuestions.length} tadan ${correctCount} ta to'g'ri!`);
-            showResults();
-        }
-
-        // 6. Natijani ko'rsatish
-        function showResults() {
-            document.querySelectorAll('.option-btn').forEach(btn => btn.style.pointerEvents = 'none');
-            const question = testQuestions[currentQuestionIndex];
-            const buttons = document.getElementById('options-container').children;
-
-            for(let btn of buttons) btn.classList.remove('selected', 'wrong', 'correct');
-
-            let userChoice = userAnswers[currentQuestionIndex];
-            let correctChoice = question.correctIndex;
-
-            if (userChoice !== undefined) {
-                if (userChoice === correctChoice) {
-                    buttons[userChoice].classList.add('correct');
-                } else {
-                    buttons[userChoice].classList.add('wrong');
-                    buttons[correctChoice].classList.add('correct');
+            currentQuestion.answers.forEach(answer => {
+                const button = document.createElement("button");
+                button.innerText = answer;
+                button.classList.add("btn");
+                if (answer === currentQuestion.correct) {
+                    button.dataset.correct = "true";
                 }
-            } else {
-                 buttons[correctChoice].classList.add('correct');
+                button.addEventListener("click", selectAnswer);
+                answerButtonsElement.appendChild(button);
+            });
+        }
+
+        function resetState() {
+            nextButton.style.display = "none";
+            while (answerButtonsElement.firstChild) {
+                answerButtonsElement.removeChild(answerButtonsElement.firstChild);
             }
         }
 
-        // 7. Timer
-        function startTimer() {
-            const timerEl = document.getElementById('timer');
-            const interval = setInterval(() => {
-                let m = Math.floor(timerDuration / 60);
-                let s = timerDuration % 60;
-                timerEl.innerText = `${m < 10 ? '0'+m : m} : ${s < 10 ? '0'+s : s}`;
-                if (--timerDuration < 0) {
-                    clearInterval(interval);
-                    alert("Vaqt tugadi!");
-                    finishTest();
+        function selectAnswer(e) {
+            const selectedBtn = e.target;
+            const isCorrect = selectedBtn.dataset.correct === "true";
+            
+            if (isCorrect) {
+                selectedBtn.classList.add("correct");
+                score++;
+            } else {
+                selectedBtn.classList.add("wrong");
+            }
+
+            Array.from(answerButtonsElement.children).forEach(button => {
+                if (button.dataset.correct === "true") {
+                    button.classList.add("correct");
                 }
-            }, 1000);
+                button.disabled = true;
+            });
+            nextButton.style.display = "block";
         }
 
-        loadQuestions();
+        function showScore() {
+            quizBox.style.display = "none";
+            resultBox.style.display = "block";
+            finalScoreSpan.innerText = `${score} / ${questions.length}`;
+        }
+
+        nextButton.addEventListener("click", () => {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                showQuestion();
+            } else {
+                 buttons[correctChoice].classList.add('correct');
+            }
+        });
+
+        // Dasturni ishga tushirish (JSON yuklashdan boshlanadi)
+        loadData();
+
     </script>
 </body>
 </html>
