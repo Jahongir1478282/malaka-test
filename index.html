@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Online Test Tizimi</title>
+    <title>Online Test (Natijali)</title>
     <style>
         /* --- DIZAYN (O'zgarmadi) --- */
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #fcfcfc; margin: 0; padding: 20px; color: #333; }
@@ -15,14 +15,32 @@
         .grid-item { width: 35px; height: 35px; background-color: #26c6da; color: white; display: flex; justify-content: center; align-items: center; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; transition: 0.2s; border: none; }
         .grid-item:hover { opacity: 0.8; }
         .grid-item.active { background-color: #00838f; border: 2px solid #006064; }
-        .grid-item.answered { background-color: #4db6ac; }
+        .grid-item.answered { background-color: #4db6ac; } /* Javob berilgan katak rangi */
+        
         .question-text { font-size: 18px; margin-bottom: 20px; color: #444; }
         .options-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 40px; }
+        
         .option-btn { padding: 15px 20px; background-color: #e0f2f1; border: 1px solid #b2dfdb; border-radius: 5px; text-align: left; cursor: pointer; font-size: 16px; transition: 0.2s; color: #004d40; }
         .option-btn:hover { background-color: #b2dfdb; }
-        .option-btn.selected { background-color: #80cbc4; border-color: #009688; font-weight: bold; }
-        .option-btn.wrong { background-color: #ffcdd2; color: #c62828; border-color: #ef9a9a; }
-        .option-btn.correct { background-color: #c8e6c9; color: #2e7d32; border-color: #a5d6a7; }
+        
+        /* -- YANGI RANGLAR (Feedback uchun) -- */
+        .option-btn.correct { 
+            background-color: #c8e6c9 !important; /* Yashil */
+            color: #2e7d32; 
+            border-color: #a5d6a7;
+            font-weight: bold;
+        }
+        
+        .option-btn.wrong { 
+            background-color: #ffcdd2 !important; /* Qizil/Pushti */
+            color: #c62828; 
+            border-color: #ef9a9a;
+            font-weight: bold;
+        }
+
+        /* Bosib bo'lingan tugmalarni o'chirib qo'yish uchun */
+        .disabled-options { pointer-events: none; }
+
         .footer-buttons { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }
         .nav-btn { padding: 10px 30px; background-color: white; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-weight: bold; color: #555; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .finish-btn { padding: 12px 40px; background-color: #2962ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 0 2px 5px rgba(41, 98, 255, 0.3); }
@@ -130,37 +148,75 @@
             document.getElementById('question-text').innerText = `${index + 1}). ${question.text}`;
             const optionsContainer = document.getElementById('options-container');
             optionsContainer.innerHTML = '';
+            
+            // Oldin javob berilganmi?
+            const isAnswered = userAnswers[index] !== undefined;
+            if (isAnswered) {
+                optionsContainer.classList.add('disabled-options'); // Qayta bosishni taqiqlash
+            } else {
+                optionsContainer.classList.remove('disabled-options');
+            }
 
             question.options.forEach((opt, optIndex) => {
                 const btn = document.createElement('div');
                 btn.className = 'option-btn';
                 btn.innerText = opt;
-                if (userAnswers[index] === optIndex) btn.classList.add('selected');
-                
-                // O'zgartirish kiritilgan joy: bosilganda selectOption ishlaydi
-                btn.onclick = () => selectOption(index, optIndex);
+
+                // Agar avval javob berilgan bo'lsa, ranglarni tiklaymiz (old-orqaga yurganda)
+                if (isAnswered) {
+                    const userAnswer = userAnswers[index];
+                    const correctAnswer = question.correctIndex;
+
+                    if (optIndex === correctAnswer) {
+                        btn.classList.add('correct'); // To'g'ri javob doim yashil
+                    }
+                    if (optIndex === userAnswer && userAnswer !== correctAnswer) {
+                        btn.classList.add('wrong'); // Xato bosgan bo'lsa qizil
+                    }
+                }
+
+                btn.onclick = () => selectOption(index, optIndex, btn);
                 optionsContainer.appendChild(btn);
             });
             renderGrid();
         }
 
-        // --- YANGILANGAN QISM: Javob tanlash va AVTO O'TISH ---
-        function selectOption(qIndex, optIndex) {
-            // 1. Javobni saqlaymiz
-            userAnswers[qIndex] = optIndex;
-            
-            // 2. Ekranni yangilaymiz (belgilangani ko'rinishi uchun)
-            showQuestion(qIndex); 
+        // --- ASOSIY O'ZGARISH SHU YERDA ---
+        function selectOption(qIndex, optIndex, clickedBtn) {
+            // Agar allaqachon javob berilgan bo'lsa, qaytarib yuboramiz (double click oldini olish)
+            if (userAnswers[qIndex] !== undefined) return;
 
-            // 3. Avtomatik keyingisiga o'tish (0.5 soniyadan keyin)
-            // Agar oxirgi savol bo'lmasa, keyingisiga o'tadi
+            // 1. Javobni saqlash
+            userAnswers[qIndex] = optIndex;
+
+            // 2. Tugmalarni bloklash (boshqasini bosib yubormasligi uchun)
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.classList.add('disabled-options');
+            const allButtons = optionsContainer.children;
+
+            // 3. Ranglarni darhol bo'yash (ShowQuestion'ni kutmasdan)
+            const question = testQuestions[qIndex];
+            
+            if (optIndex === question.correctIndex) {
+                // To'g'ri topdi -> YASHIL
+                clickedBtn.classList.add('correct');
+            } else {
+                // Xato topdi -> QIZIL
+                clickedBtn.classList.add('wrong');
+                // To'g'ri javobni ham ko'rsatamiz -> YASHIL
+                allButtons[question.correctIndex].classList.add('correct');
+            }
+            
+            // Grid rangini yangilash (answered bo'lishi uchun)
+            renderGrid();
+
+            // 4. 1 soniya kutib, keyingisiga o'tish
             if (qIndex < testQuestions.length - 1) {
                 setTimeout(() => {
                     nextQuestion();
-                }, 500); // 500 millisekund (yarim soniya) kutib turadi
+                }, 1000); // 1000 ms = 1 soniya (Foydalanuvchi xatosini ko'rishi uchun)
             }
         }
-        // -----------------------------------------------------
 
         function nextQuestion() {
             if (currentQuestionIndex < testQuestions.length - 1) {
@@ -183,29 +239,6 @@
             });
 
             alert(`Natija: ${testQuestions.length} tadan ${correctCount} ta to'g'ri!`);
-            showResults();
-        }
-
-        function showResults() {
-            document.querySelectorAll('.option-btn').forEach(btn => btn.style.pointerEvents = 'none');
-            const question = testQuestions[currentQuestionIndex];
-            const buttons = document.getElementById('options-container').children;
-
-            for(let btn of buttons) btn.classList.remove('selected', 'wrong', 'correct');
-
-            let userChoice = userAnswers[currentQuestionIndex];
-            let correctChoice = question.correctIndex;
-
-            if (userChoice !== undefined) {
-                if (userChoice === correctChoice) {
-                    buttons[userChoice].classList.add('correct');
-                } else {
-                    buttons[userChoice].classList.add('wrong');
-                    buttons[correctChoice].classList.add('correct');
-                }
-            } else {
-                 buttons[correctChoice].classList.add('correct');
-            }
         }
 
         function startTimer() {
